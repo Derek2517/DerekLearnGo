@@ -1,0 +1,59 @@
+package main
+
+import (
+    "fmt"
+    "log"
+    "os"
+    "regexp"
+
+    "github.com/aws/aws-sdk-go/aws"
+    "github.com/aws/aws-sdk-go/aws/session"
+    "github.com/aws/aws-sdk-go/service/s3"
+)
+
+func main() {
+    bucket := "your-bucket-name"
+    prefix := "path/to/logs"
+    filter := regexp.MustCompile(`.*Error.*`)
+
+    sess := session.Must(session.NewSession())
+    svc := s3.New(sess)
+
+    err := svc.ListObjectsPages(&s3.ListObjectsInput{
+        Bucket: aws.String(bucket),
+        Prefix: aws.String(prefix),
+    }, func(page *s3.ListObjectsOutput, lastPage bool) bool {
+        for _, obj := range page.Contents {
+            if err := processS3Object(svc, bucket, *obj.Key, filter); err != nil {
+                log.Printf("Error processing %s: %s", *obj.Key, err)
+            }
+        }
+        return true
+    })
+    if err != nil {
+        log.Fatalf("Error listing S3 objects: %s", err)
+    }
+}
+
+func processS3Object(svc *s3.S3, bucket, key string, filter *regexp.Regexp) error {
+    resp, err := svc.GetObject(&s3.GetObjectInput{
+        Bucket: aws.String(bucket),
+        Key:    aws.String(key),
+    })
+    if err != nil {
+        return err
+    }
+    defer resp.Body.Close()
+
+    scanner := bufio.NewScanner(resp.Body)
+    for scanner.Scan() {
+        line := scanner.Text()
+        if filter.MatchString(line) {
+            fmt.Printf("%s: %s\n", key, line)
+        }
+    }
+    if err := scanner.Err(); err != nil {
+        return err
+    }
+    return nil
+}
