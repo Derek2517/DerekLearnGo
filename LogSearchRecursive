@@ -1,0 +1,43 @@
+package main
+
+import (
+    "bufio"
+    "fmt"
+    "log"
+    "os"
+    "path/filepath"
+    "regexp"
+)
+
+func main() {
+    err := filepath.Walk("/var/log/", func(path string, info os.FileInfo, err error) error {
+        if err != nil {
+            return err
+        }
+        if info.IsDir() {
+            return nil
+        }
+        if filepath.Ext(path) != ".log" {
+            return nil
+        }
+        file, err := os.Open(path)
+        if err != nil {
+            return err
+        }
+        defer file.Close()
+        scanner := bufio.NewScanner(file)
+        for scanner.Scan() {
+            line := scanner.Text()
+            if match, _ := regexp.MatchString(".*HTTP/1.1\" 400.*", line); match {
+                fmt.Println(path, ":", line)
+            }
+        }
+        if err := scanner.Err(); err != nil {
+            log.Fatal(err)
+        }
+        return nil
+    })
+    if err != nil {
+        log.Fatal(err)
+    }
+}
