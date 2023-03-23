@@ -1,0 +1,36 @@
+package main
+
+import (
+    "bufio"
+    "fmt"
+    "log"
+    "os"
+    "strings"
+)
+
+func main() {
+    // Open log file
+    file, err := os.Open("/path/to/logfile.log")
+    if err != nil {
+        log.Fatal(err)
+    }
+    defer file.Close()
+
+    // Create scanner to read log file line by line
+    scanner := bufio.NewScanner(file)
+
+    // Loop through each line in the log file
+    for scanner.Scan() {
+        line := scanner.Text()
+
+        // Check if the line contains HTTP 400 error
+        if strings.Contains(line, "HTTP/1.1\" 400") {
+            fmt.Println(line)
+        }
+    }
+
+    // Check for any errors during scanning
+    if err := scanner.Err(); err != nil {
+        log.Fatal(err)
+    }
+}
